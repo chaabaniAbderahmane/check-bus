@@ -5,9 +5,7 @@ from bus_seating import BusSeatingAlgorithm
 from qr_system import display_qr_card, generate_client_qr
 from chat_system import render_chat_interface
 import plotly.express as px
-import plotly.graph_objects as go
 from datetime import datetime
-import speech_recognition as sr
 from io import BytesIO
 
 def render_admin_dashboard():
@@ -55,7 +53,7 @@ def render_admin_dashboard():
     
     # Sidebar navigation
     with st.sidebar:
-        st.image("https://img.icons8.com/color/96/bus.png", width=80)
+        st.markdown("### 🚌 VoyagePro")
         st.title("Navigation")
         
         page = st.radio("", [
@@ -167,7 +165,7 @@ def show_create_trip():
                 st.error("Veuillez remplir tous les champs")
 
 def show_manage_passengers():
-    """Gérer les voyageurs - avec saisie vocale et manuelle"""
+    """Gérer les voyageurs - saisie manuelle uniquement"""
     if not st.session_state.get('trip_id'):
         st.warning("Veuillez d'abord sélectionner un voyage dans l'accueil")
         return
@@ -179,20 +177,20 @@ def show_manage_passengers():
     st.subheader(f"👥 Gestion des Voyageurs - {trip['trip_name'] if trip is not None else ''}")
     
     # Onglets pour différentes méthodes d'ajout
-    tab1, tab2, tab3 = st.tabs(["✍️ Saisie Manuelle", "🎤 Saisie Vocale", "📋 Liste & QR Codes"])
+    tab1, tab2 = st.tabs(["✍️ Saisie Manuelle", "📋 Liste & QR Codes"])
     
     with tab1:
         with st.form("add_passenger_form"):
             col1, col2 = st.columns(2)
             with col1:
-                first_name = st.text_input("Prénom")
+                first_name = st.text_input("Prénom *")
                 category = st.selectbox("Catégorie", [
                     "standard", "famille", "amis", "fille", "garçon", "elder", "enfant"
                 ])
                 phone = st.text_input("Téléphone")
             
             with col2:
-                last_name = st.text_input("Nom")
+                last_name = st.text_input("Nom *")
                 group_id = st.number_input("ID Groupe (famille/amis ensemble)", min_value=0, value=0, step=1)
                 email = st.text_input("Email")
             
@@ -217,38 +215,6 @@ def show_manage_passengers():
                     st.error("Prénom et Nom obligatoires")
     
     with tab2:
-        st.info("🎤 Cliquez sur le micro et dites les informations du voyageur")
-        st.write("**Format attendu**: 'Prénom Nom, catégorie, téléphone'")
-        st.write("**Exemple**: 'Ahmed Benali, famille, 0661234567'")
-        
-        # Simulation de saisie vocale (Streamlit ne supporte pas directement le micro)
-        # Dans un vrai déploiement, vous utiliseriez st.audio_input() (Streamlit 1.35+)
-        
-        vocal_input = st.text_area("🎤 Transcription vocale (simulation)", 
-                                  placeholder="Collez ici la transcription...",
-                                  help="Dans la version finale, ce sera remplacé par une vraie entrée micro")
-        
-        if st.button("🔄 Traiter la saisie vocale"):
-            if vocal_input:
-                # Parser la saisie vocale
-                parts = [p.strip() for p in vocal_input.split(',')]
-                if len(parts) >= 2:
-                    names = parts[0].split()
-                    if len(names) >= 2:
-                        first_name, last_name = names[0], ' '.join(names[1:])
-                        category = parts[1] if len(parts) > 1 else 'standard'
-                        phone = parts[2] if len(parts) > 2 else None
-                        
-                        user_id, username, password, access_code = create_client(
-                            trip_id, first_name, last_name, category, None, phone
-                        )
-                        st.success(f"✅ Ajouté: {first_name} {last_name} | Code: {access_code}")
-                    else:
-                        st.error("Format incorrect. Dites: 'Prénom Nom, catégorie'")
-                else:
-                    st.error("Format incorrect")
-    
-    with tab3:
         clients = get_users_by_trip(trip_id, 'client')
         if not clients.empty:
             st.write(f"**{len(clients)} voyageurs enregistrés**")
@@ -330,11 +296,11 @@ def show_bus_seating():
                 client = clients[clients['seat_number'] == seat_num]
                 if not client.empty:
                     client = client.iloc[0]
-                    status = " Occupé"
+                    status = "Occupé"
                     name = f"{client['first_name'][:8]}"
                     color = "#22C55E" if client['checked_in'] else "#FF6B35"
                 else:
-                    status = " Libre"
+                    status = "Libre"
                     name = ""
                     color = "#334155"
                 
@@ -382,7 +348,7 @@ def show_attendance():
     for _, client in clients.iterrows():
         status_class = "checked-in" if client['checked_in'] else "not-checked-in"
         status_icon = "✅" if client['checked_in'] else "⏳"
-        seat_info = f" | 🪑 Siège {client['seat_label']}" if pd.notna(client.get('seat_number')) else ""
+        seat_info = f" | 🪑 Siège {client['seat_label']}" if pd.notna(client.get('seat_label')) else ""
         
         col1, col2, col3 = st.columns([3, 1, 1])
         
@@ -404,7 +370,6 @@ def show_attendance():
         with col3:
             if st.button("💬 Message", key=f"msg_{client['id']}"):
                 st.session_state['chat_with'] = client['id']
-                st.session_state['current_page'] = 'chat'
                 st.rerun()
 
 def show_admin_chat():
