@@ -2,7 +2,9 @@ import sqlite3
 import pandas as pd
 from datetime import datetime
 import streamlit as st
-import os
+import hashlib
+import secrets
+import random
 
 DB_PATH = "voyagepro.db"
 
@@ -32,7 +34,7 @@ def init_database():
         CREATE TABLE IF NOT EXISTS users (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             trip_id INTEGER,
-            role TEXT NOT NULL,  -- 'admin' ou 'client'
+            role TEXT NOT NULL,
             first_name TEXT NOT NULL,
             last_name TEXT NOT NULL,
             username TEXT UNIQUE,
@@ -41,8 +43,9 @@ def init_database():
             seat_number INTEGER,
             seat_row INTEGER,
             seat_col INTEGER,
-            category TEXT,  -- 'famille', 'amis', 'fille', 'garcon', 'elder', etc.
-            group_id INTEGER,  -- Pour regrouper les familles/amis
+            seat_label TEXT,
+            category TEXT DEFAULT 'standard',
+            group_id INTEGER,
             phone TEXT,
             email TEXT,
             points INTEGER DEFAULT 0,
@@ -158,7 +161,6 @@ def create_client(trip_id, first_name, last_name, category=None, group_id=None, 
         return user_id, username, password, access_code
     except sqlite3.IntegrityError:
         # Si username existe, ajouter un nombre
-        import random
         username = f"{first_name.lower()}.{last_name.lower()}{random.randint(1,999)}"
         c.execute('''
             INSERT INTO users (trip_id, role, first_name, last_name, username, password, 
@@ -207,11 +209,12 @@ def authenticate_user(username, password, trip_id=None):
     return None
 
 def update_seat(user_id, seat_number, seat_row, seat_col):
+    seat_label = f"{seat_row}{chr(64 + seat_col)}"
     conn = get_connection()
     c = conn.cursor()
     c.execute('''
-        UPDATE users SET seat_number = ?, seat_row = ?, seat_col = ? WHERE id = ?
-    ''', (seat_number, seat_row, seat_col, user_id))
+        UPDATE users SET seat_number = ?, seat_row = ?, seat_col = ?, seat_label = ? WHERE id = ?
+    ''', (seat_number, seat_row, seat_col, seat_label, user_id))
     conn.commit()
     conn.close()
 
@@ -300,4 +303,3 @@ def get_user_by_id(user_id):
 
 # Initialiser la base de données au démarrage
 init_database()
-  
